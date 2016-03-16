@@ -64,7 +64,9 @@ fader_right.join()
   .receive("ok", resp => { console.log("Joined successfully", resp) })
   .receive("error", resp => { console.log("Unable to join", resp) })
 
-fader_right.on("data", data => console.log("right: ", data))
-fader_left.on("data", data => console.log("left: ", data))
+fader_right.on("fade", data => console.log("right fade: ", data))
+fader_left.on("fade", data => console.log("left fade: ", data))
+fader_right.on("push", data => console.log("right push", data))
+fader_left.on("push", data => console.log("left push", data))
 
 export default socket

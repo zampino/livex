@@ -1,12 +1,12 @@
 defmodule Livex.DeviceSocket do
   use Phoenix.Socket
   require Logger
-  
+
   ## Channels
   channel "fader:*", Livex.FaderChannel
 
   ## Transports
-  transport :websocket, Livex.OSCTransport
+  transport :websocket, Phoenix.Transports.WebSocket #Livex.OSCTransport
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After
@@ -21,7 +21,7 @@ defmodule Livex.DeviceSocket do
   # performing token verification on connect.
   def connect(params, socket) do
     Logger.info "[Livex.DeviceSocket] - connect"
-    {:ok, assign(socket, :user_id, params[:__sender_ip__])}
+    {:ok, assign(socket, :user_id, 1234)}
   end
   # Socket id's are topics that allow you to identify all sockets for a given user:
   #
