@@ -1,0 +1,9 @@
+%{"cowboy": {:hex, :cowboy, "1.0.4"},
+  "cowlib": {:hex, :cowlib, "1.0.2"},
+  "gettext": {:hex, :gettext, "0.10.0"},
+  "phoenix": {:git, "https://github.com/phoenixframework/phoenix.git", "427b162ba412f1109445ea22c09b8fba79d549f0", []},
+  "phoenix_html": {:hex, :phoenix_html, "2.5.1"},
+  "phoenix_pubsub": {:git, "https://github.com/phoenixframework/phoenix_pubsub.git", "db872432a0ae085daab69e25b9afc03b28910c27", []},
+  "plug": {:hex, :plug, "1.1.2"},
+  "poison": {:hex, :poison, "2.1.0"},
+  "ranch": {:hex, :ranch, "1.2.1"}}
