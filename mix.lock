@@ -1,5 +1,6 @@
 %{"cowboy": {:hex, :cowboy, "1.0.4"},
   "cowlib": {:hex, :cowlib, "1.0.2"},
+  "ex_osc": {:git, "https://github.com/zampino/ex_osc.git", "497fa84c988ec92350b77176fce880f117d3c203", []},
   "gettext": {:hex, :gettext, "0.10.0"},
   "phoenix": {:git, "https://github.com/phoenixframework/phoenix.git", "427b162ba412f1109445ea22c09b8fba79d549f0", []},
   "phoenix_html": {:hex, :phoenix_html, "2.5.1"},
