@@ -2,11 +2,11 @@ defmodule Livex.FaderChannel do
   use Livex.Web, :channel
   require Logger
 
-  intercept ["fade"]
+  # intercept ["fade"]
 
   def join("fader:" <> direction, _payload, socket) do
     Logger.debug "joined #{direction}"
-    if socket.id, do: socket.endpoint.subscribe(self, socket.id)
+    # if socket.id, do: socket.endpoint.subscribe(self, socket.id)
     {:ok, socket.id, socket}
   end
 

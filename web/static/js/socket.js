@@ -5,7 +5,7 @@
 // and connect at the socket path in "lib/my_app/endpoint.ex":
 import {Socket} from "phoenix"
 
-let socket = new Socket("/socket", {params: {token: window.userToken}})
+let socket = new Socket("/socket", {params: {user_id: 1234}})
 
 // When you connect, you'll often need to authenticate the client.
 // For example, imagine you have an authentication plug, `MyAuth`,
@@ -54,19 +54,21 @@ let socket = new Socket("/socket", {params: {token: window.userToken}})
 socket.connect()
 
 // Now that you are connected, you can join channels with a topic:
-let fader_left = socket.channel("fader:left", {})
-fader_left.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp) })
+
+new Array(1, 2, 3, 4).map(ch => {
+  let fader_ch = socket.channel("fader:" + ch, {})
+  fader_ch.join()
+    .receive("ok", resp => { console.log("Joined successfully", ch, resp) })
+    .receive("error", resp => { console.log("Unable to join", resp) })
+  fader_ch.on("fade", data => console.log("fader" + ch + ":", data))
+})
+
+let monitor = socket.channel("monitor", {})
+monitor.join()
+  .receive("ok", resp => { console.log("monitor joined successfully", resp) })
   .receive("error", resp => { console.log("Unable to join", resp) })
 
-let fader_right = socket.channel("fader:right", {})
-fader_right.join()
-  .receive("ok", resp => { console.log("Joined successfully", resp) })
-  .receive("error", resp => { console.log("Unable to join", resp) })
-
-fader_right.on("fade", data => console.log("right fade: ", data))
-fader_left.on("fade", data => console.log("left fade: ", data))
-fader_right.on("push", data => console.log("right push", data))
-fader_left.on("push", data => console.log("left push", data))
+monitor.on("signal", data => console.log("signal", data))
+// monitor.on("signal", data => console.log("signal", data))
 
 export default socket

@@ -4,6 +4,8 @@ defmodule Livex.DeviceSocket do
 
   ## Channels
   channel "fader:*", Livex.FaderChannel
+  # channel "xy:*", Livex.XYChannel
+  channel "monitor", Livex.MonitorChannel
 
   ## Transports
   transport :websocket, Phoenix.Transports.WebSocket #Livex.OSCTransport
@@ -20,8 +22,7 @@ defmodule Livex.DeviceSocket do
   # See `Phoenix.Token` documentation for examples in
   # performing token verification on connect.
   def connect(params, socket) do
-    Logger.info "[Livex.DeviceSocket] - connect"
-    {:ok, assign(socket, :user_id, 1234)}
+    {:ok, assign(socket, :user_id, params["user_id"])}
   end
   # Socket id's are topics that allow you to identify all sockets for a given user:
   #
@@ -33,5 +34,5 @@ defmodule Livex.DeviceSocket do
   #     Livex.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
   #
   # Returning `nil` makes this socket anonymous.
-  def id(socket), do: "users:#{socket.assigns.user_id}"
+  def id(socket), do: "monitor:#{socket.assigns.user_id}"
 end

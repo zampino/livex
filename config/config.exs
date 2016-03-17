@@ -7,6 +7,8 @@ use Mix.Config
 
 # Configures the endpoint
 config :livex, Livex.Endpoint,
+  handler: Phoenix.OSC,
+  # osc_udp_port: 8001,
   url: [host: "localhost"],
   root: Path.dirname(__DIR__),
   secret_key_base: "STPXA+z1Nogz4ypgjdSfL/6Xxh6XblppTiCF0dGkJnteykkTxUZN/Ka0UgxWekky",

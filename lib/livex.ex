@@ -8,7 +8,7 @@ defmodule Livex do
 
     children = [
       # Start the endpoint when the application starts
-      worker(Livex.OSCServer, []),
+      # worker(Livex.OSCServer, []),
       supervisor(Livex.Endpoint, []),
       # Here you could define other workers and supervisors as children
       # worker(Livex.Worker, [arg1, arg2, arg3]),

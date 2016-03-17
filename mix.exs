@@ -32,6 +32,7 @@ defmodule Livex.Mixfile do
      {:phoenix_html, ">= 0.0.0"},
      {:gettext, "~> 0.9"},
      {:cowboy, "~> 1.0"},
-     {:ex_osc, ">= 0.0.0", path: "../ex_osc"}]
+     {:phoenix_osc, "0.1.0", path: "../phoenix_osc"}]
+     # {:ex_osc, ">= 0.0.0", path: "../ex_osc"}]
   end
 end
