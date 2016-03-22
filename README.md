@@ -1,3 +1,3 @@
 # Livex
 
-`Phoenix.OSC` channels and transport at work
+A Phoenix Visual Playground for TouchOSC and [`Phoenix.OSC`](//github.com/zampino/phoenix_osc)
