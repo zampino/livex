@@ -1,0 +1,3 @@
+[submodule "web/elm/elm-stuff/packages/svard/elm-phoenix/2.0.0"]
+	path = web/elm/elm-stuff/packages/svard/elm-phoenix/2.0.0
+	url = https://github.com/svard/elm-phoenix.git

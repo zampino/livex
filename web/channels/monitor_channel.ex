@@ -4,6 +4,7 @@ defmodule Livex.MonitorChannel do
 
   def join("monitor", _payload, socket) do
     if socket.id, do: socket.endpoint.subscribe(self, socket.id)
+    Logger.info "\n[Livex.MonitorChannel] -- joined"
     {:ok, socket.id, socket}
   end
 

@@ -6,7 +6,7 @@ defmodule Livex.DeviceSocket do
   channel "fader:*", Livex.FaderChannel
   # channel "xy:*", Livex.XYChannel
   channel "monitor", Livex.MonitorChannel
-
+  channel "rotor:*", Livex.RotorChannel
   ## Transports
   transport :websocket, Phoenix.Transports.WebSocket #Livex.OSCTransport
 
