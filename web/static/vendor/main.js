@@ -6644,13 +6644,12 @@ Elm.Main.make = function (_elm) {
    $Signal = Elm.Signal.make(_elm),
    $Time = Elm.Time.make(_elm);
    var _op = {};
-   var rotor = F2(function (geometry,_p0) {
+   var rotor = F3(function (time,geometry,_p0) {
       var _p1 = _p0;
-      var _p4 = _p1._0;
-      var _p3 = _p1._1;
+      var _p3 = _p1._0;
       var thin = $Graphics$Collage.solid(geometry.color);
       var thick = _U.update(thin,{width: 2});
-      var angle = 2 * $Basics.pi * geometry.omega * (_p4 / 1000);
+      var angle = 2 * $Basics.pi * geometry.omega * (time / 1000);
       var _p2 = $Basics.fromPolar({ctor: "_Tuple2",_0: geometry.radius,_1: angle});
       var deltaX = _p2._0;
       var deltaY = _p2._1;
@@ -6660,15 +6659,25 @@ Elm.Main.make = function (_elm) {
                         _p3,
                         A2($Graphics$Collage.outlined,$Graphics$Collage.solid($Color.grey),$Graphics$Collage.circle(geometry.radius)))
                         ,A2($Graphics$Collage.traced,thick,seg)]);
-      var new_list = A2($Basics._op["++"],_p1._2,elm);
-      return {ctor: "_Tuple3",_0: _p4,_1: pos,_2: new_list};
+      var new_list = A2($Basics._op["++"],_p1._1,elm);
+      return {ctor: "_Tuple2",_0: pos,_1: new_list};
    });
-   var third = function (_p5) {    var _p6 = _p5;return _p6._2;};
+   var view = function (ds) {    return A3($Graphics$Collage.collage,600,600,ds.drawing);};
+   var lift = function (state) {    return {last_position: {ctor: "_Tuple2",_0: 0,_1: 0},drawing: _U.list([]),paths: _U.list([])};};
+   var sgm = F2(function (start,stop) {
+      var _p4 = start;
+      if (_p4.ctor === "_Tuple2" && _p4._0 === 0 && _p4._1 === 0) {
+            return _U.list([]);
+         } else {
+            return _U.list([A2($Graphics$Collage.traced,$Graphics$Collage.solid($Color.black),A2($Graphics$Collage.segment,_p4,stop))]);
+         }
+   });
+   var DState = F3(function (a,b,c) {    return {drawing: a,last_position: b,paths: c};});
    var update_omega = function (coeff) {    return 2 * coeff;};
    var update_radius = function (coeff) {    return 50 + 600 * coeff;};
    var update = F3(function (prop,value,geometry) {
-      var _p7 = prop;
-      switch (_p7)
+      var _p5 = prop;
+      switch (_p5)
       {case "radius": return _U.update(geometry,{radius: update_radius(value)});
          case "omega": return _U.update(geometry,{omega: update_omega(value)});
          default: return geometry;}
@@ -6679,26 +6688,35 @@ Elm.Main.make = function (_elm) {
                                           ,{ctor: "_Tuple2",_0: "c3",_1: A3(Geometry,50,0.8,$Color.red)}]));
    var safeGet = F2(function (idx,state) {
       var mgeometry = A2($Dict.get,idx,state);
-      var _p8 = mgeometry;
-      if (_p8.ctor === "Just") {
-            return _p8._0;
+      var _p6 = mgeometry;
+      if (_p6.ctor === "Just") {
+            return _p6._0;
          } else {
             return A3(Geometry,10,1,$Color.black);
          }
    });
-   var action = F2(function (_p9,state) {
-      var _p10 = _p9;
-      var _p11 = _p10._0;
-      var new_geometry = A3(update,_p10._1,_p10._2,A2(safeGet,_p11,state));
-      return A3($Dict.insert,_p11,new_geometry,state);
+   var action = F2(function (_p7,state) {
+      var _p8 = _p7;
+      var _p9 = _p8._0;
+      var new_geometry = A3(update,_p8._1,_p8._2,A2(safeGet,_p9,state));
+      return A3($Dict.insert,_p9,new_geometry,state);
    });
    var render = F2(function (time,state) {
-      var comp = A2(rotor,
+      return A3(rotor,
+      time,
       A2(safeGet,"c3",state),
-      A2(rotor,A2(safeGet,"c2",state),A2(rotor,A2(safeGet,"c1",state),{ctor: "_Tuple3",_0: time,_1: {ctor: "_Tuple2",_0: 0,_1: 0},_2: _U.list([])})));
-      return third(comp);
+      A3(rotor,time,A2(safeGet,"c2",state),A3(rotor,time,A2(safeGet,"c1",state),{ctor: "_Tuple2",_0: {ctor: "_Tuple2",_0: 0,_1: 0},_1: _U.list([])})));
    });
-   var view = F2(function (time,state) {    return A3($Graphics$Collage.collage,900,900,A2(render,time,state));});
+   var draw_action = F2(function (_p10,ds) {
+      var _p11 = _p10;
+      var _p12 = A2(render,_p11._0,_p11._1);
+      var new_pos = _p12._0;
+      var form_list = _p12._1;
+      var last_position = ds.last_position;
+      var dsgm = A2(sgm,last_position,new_pos);
+      var updated = _U.update(ds,{last_position: new_pos,paths: A2($Basics._op["++"],ds.paths,dsgm)});
+      return _U.update(updated,{drawing: A2($Basics._op["++"],form_list,updated.paths)});
+   });
    var stateChangeEvents = Elm.Native.Port.make(_elm).inboundSignal("stateChangeEvents",
    "( String, String, Float )",
    function (v) {
@@ -6710,7 +6728,9 @@ Elm.Main.make = function (_elm) {
                                                            ,_2: typeof v[2] === "number" ? v[2] : _U.badPort("a number",v[2])} : _U.badPort("an array",v);
    });
    var stateSignal = A3($Signal.foldp,action,initState,stateChangeEvents);
-   var main = A3($Signal.map2,view,$Time.every($Time.millisecond),stateSignal);
+   var compositeSignal = A3($Signal.map2,F2(function (x,y) {    return {ctor: "_Tuple2",_0: x,_1: y};}),$Time.every($Time.millisecond),stateSignal);
+   var drawingSignal = A3($Signal.foldp,draw_action,lift(initState),compositeSignal);
+   var main = A2($Signal.map,view,drawingSignal);
    return _elm.Main.values = {_op: _op
                              ,Geometry: Geometry
                              ,initState: initState
@@ -6720,9 +6740,14 @@ Elm.Main.make = function (_elm) {
                              ,update: update
                              ,action: action
                              ,stateSignal: stateSignal
+                             ,DState: DState
+                             ,sgm: sgm
+                             ,compositeSignal: compositeSignal
+                             ,draw_action: draw_action
+                             ,lift: lift
+                             ,drawingSignal: drawingSignal
                              ,main: main
                              ,view: view
-                             ,third: third
                              ,render: render
                              ,rotor: rotor};
 };
