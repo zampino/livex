@@ -1,3 +1,4 @@
 # Livex
 
-A Phoenix Visual Playground for TouchOSC and [`Phoenix.OSC`](//github.com/zampino/phoenix_osc)
+A Phoenix Elm visual playground for [`Phoenix.OSC`](//github.com/zampino/phoenix_osc)
+and TouchOSC
