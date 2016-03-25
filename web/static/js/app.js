@@ -21,7 +21,10 @@
 // import socket from "./socket"
 import Channels from "./channels"
 const elmDiv = document.querySelector("#elm-container");
-const elmApp = Elm.embed(Elm.Main, elmDiv, {stateChangeEvents: ["c1", "omega", 0.1]});
+const elmApp = Elm.embed(Elm.Main, elmDiv, {
+  stateEvents: ["c1", "omega", 0.1],
+  penEvents: 1.0
+});
 window.ports = elmApp.ports
-let channels = new Channels(elmApp.ports.stateChangeEvents)
+let channels = new Channels(elmApp.ports)
 channels.connect()

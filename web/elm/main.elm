@@ -4,41 +4,36 @@ import Graphics.Element exposing (..)
 import Time exposing (Time, every, millisecond, fps)
 import Dict exposing (Dict, get, insert)
 import Debug exposing (log)
---
--- main =
---   Signal.map2 clock (every millisecond) stateChangeEvents
---
--- clock t r =
---   collage 600 600
---     [ outlined (solid(grey)) (circle 200)
---     , hand orange t r
---     ]
---
---
--- hand clr time len =
---   let
---     angle = ( time / 1000 ) * 2 * pi
---     thin = solid clr
---     thick = { thin | width = 2 }
---
---   in
---     segment (0,0) (fromPolar (len, angle))
---       |> traced thick
 
-port stateChangeEvents : Signal (String, String, Float)
+port stateEvents : Signal (String, String, Float)
+stateChangeEvents : Signal Event
+stateChangeEvents =
+  Signal.map StateUpdate stateEvents
 
+port penEvents : Signal Float
+up_or_down : Float -> Event
+up_or_down f =
+  case f of
+    1 -> PenUpdate Down
+    _ -> PenUpdate Up
+penChangeEvents : Signal Event
+penChangeEvents =
+  Signal.map up_or_down penEvents
+
+type Pen = Up | Down
 type alias Geometry = { radius : Float, omega : Float, color : Color }
-type alias State = Dict String Geometry
+type alias Circles = Dict String Geometry
+type alias State = { circles : Circles, pen : Pen }
 type alias Pos = ( Float, Float )
+type Event = PenUpdate Pen | StateUpdate (String, String, Float)
 
-initState : State
-initState = Dict.fromList
+circles_dict = Dict.fromList
   [ ("c1", Geometry 200 0.1 orange)
   , ("c2", Geometry 100 0.3 blue)
   , ("c3", Geometry 50 0.8 red)
   ]
 
-safeGet : String -> State -> Geometry
+safeGet : String -> Circles -> Geometry
 safeGet idx state =
   let
     mgeometry = get idx state
@@ -49,30 +44,47 @@ safeGet idx state =
 
 update_radius : Float -> Float
 update_radius coeff =
-  -- old * (1 + coeff/2)
   50 + (600 * coeff)
 
 update_omega coeff = 2 * coeff
 
-update : String -> Float -> Geometry -> Geometry
-update prop value geometry =
+g_update : String -> Float -> Geometry -> Geometry
+g_update prop value geometry =
   case prop of
     "radius" -> { geometry | radius = update_radius value }
     "omega" -> { geometry | omega = update_omega value }
     _ -> geometry
 
-action : (String, String, Float) -> State -> State
-action (idx, prop, value) state =
+action : Event -> State -> State
+action e state =
+  case Debug.log "event" e of
+    PenUpdate x ->
+      pen_update x state
+    StateUpdate (idx, prop, value) ->
+      state_update (idx, prop, value) state
+
+pen_update x state =
+  { state | pen = x }
+
+state_update : (String, String, Float) -> State -> State
+state_update (idx, prop, value) state =
   let
     new_geometry =
-      state |> safeGet idx |> update prop value
+      state.circles |> safeGet idx |> g_update prop value
+    new_dict =
+      insert idx new_geometry state.circles
   in
-    insert idx new_geometry state
+    { state | circles = new_dict }
+
+inputSignal =
+  Signal.merge penChangeEvents stateChangeEvents
+
+initState : State
+initState =
+  { circles = circles_dict, pen = Up }
 
 stateSignal =
-  Signal.foldp action initState stateChangeEvents
-
-type alias DState = { drawing : List Form, last_position : Pos, paths : List Form }
+  Signal.foldp action initState inputSignal
 
 sgm : Pos -> Pos -> List Form
 sgm start stop =
@@ -80,30 +92,45 @@ sgm start stop =
     (0, 0) -> []
     other -> [traced (solid black) (segment other stop)]
 
+timeline : Signal Time
+timeline =
+  -- (every millisecond)
+  Signal.foldp (\t acc -> acc + t/1000) 0 (fps 24)
+
 compositeSignal : Signal (Time, State)
 compositeSignal =
-  Signal.map2 (\x y -> (x, y)) (every millisecond) stateSignal
+  Signal.map2 (\x y -> (x, y)) timeline stateSignal
+
+type alias DState =
+  { circles : List Form
+  , paths : List Form
+  , last_position : Pos
+}
 
 draw_action : (Time, State) -> DState -> DState
 draw_action (time, state) ds =
   let
     last_position = ds.last_position
-    (new_pos, form_list) = render time state
-    dsgm = sgm last_position new_pos
-    updated = { ds | last_position = new_pos, paths = ds.paths ++ dsgm }
+    (new_pos, circles) = render time state.circles
+    paths = case state.pen of
+      Up -> ds.paths
+      Down -> ds.paths ++ (sgm last_position new_pos)
   in
-    { updated | drawing = form_list ++ updated.paths }
+    { ds | circles = circles
+    , last_position = new_pos
+    , paths = paths
+    }
 
-lift : State -> DState
-lift state =
+initDState : DState
+initDState =
   { last_position = (0, 0)
-  , drawing = []
+  , circles = []
   , paths = []
   }
 
 drawingSignal : Signal DState
 drawingSignal =
-  Signal.foldp draw_action (lift initState) compositeSignal
+  Signal.foldp draw_action initDState compositeSignal
 
 main : Signal Element
 main =
@@ -111,17 +138,9 @@ main =
 
 view : DState -> Element
 view ds =
-  collage 600 600 ds.drawing
+  collage 800 800 (ds.circles ++ ds.paths)
 
--- main =
---   Signal.map2 view (every millisecond) stateSignal
-
-
--- view : Time -> State -> Element
--- view time state =
---   collage 900 900 (render time state)
-
-render : Time -> State -> (Pos, List Form)
+render : Time -> Circles -> (Pos, List Form)
 render time state =
   ((0,0), [])
   |> rotor time (safeGet "c1" state)
@@ -132,7 +151,7 @@ rotor : Time -> Geometry -> (Pos, List Form) -> (Pos, List Form)
 rotor time geometry (center, acc) =
   let
     angle =
-      2 * pi * geometry.omega * ( time / 1000 )
+      2 * pi * geometry.omega * time
     thin =
       solid geometry.color
     thick =
@@ -144,14 +163,11 @@ rotor time geometry (center, acc) =
     seg =
       segment center pos
     elm =
-      [ move center (outlined (solid grey) (circle geometry.radius))
-      , traced thick seg
-      ]
+      group
+        [ move center (outlined (solid grey) (circle geometry.radius))
+        , traced thick seg
+        ]
     new_list =
-      acc ++ elm
+      elm :: acc
   in
     (pos, new_list)
-
-
-
---}

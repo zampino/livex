@@ -1,9 +1,10 @@
 import {Socket} from "phoenix"
 
 class Channels {
-  constructor(upstream) {
-    console.log("boot:", upstream);
-    this.upstream = upstream
+  constructor(ports) {
+    console.log("boot:", ports);
+    this.stateChangeEvents = ports.stateEvents
+    this.penEvents = ports.penEvents
     this.socket = new Socket("/socket", {params: {user_id: 1234}})
   }
 
@@ -22,7 +23,7 @@ class Channels {
       ch.on(prop, data => {
         let [value] = data[prop]
         // console.log(name, prop, value)
-        that.upstream.send([idx, prop, value])
+        that.stateChangeEvents.send([idx, prop, value])
       })
     })
     ch.join().receive("ok", msg => {console.log(msg)})
@@ -31,6 +32,12 @@ class Channels {
   connect() {
     this.socket.connect()
     this.listenTo(this.socket)
+    let penChannel = this.socket.channel("rotor:pen", {})
+    penChannel.on("toggle", data => {
+      let [value] = data.toggle
+      this.penEvents.send(value)
+    })
+    penChannel.join()
   }
 
 }
