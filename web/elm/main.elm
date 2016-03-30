@@ -1,7 +1,7 @@
 import Color exposing (..)
 import Graphics.Collage exposing (..)
 import Graphics.Element exposing (..)
-import Time exposing (Time, every, millisecond, fps)
+import Time exposing (Time, fps)
 import Dict exposing (Dict, get, insert)
 import Debug exposing (log)
 
@@ -19,6 +19,17 @@ up_or_down f =
 penChangeEvents : Signal Event
 penChangeEvents =
   Signal.map up_or_down penEvents
+
+type alias Clean = Bool
+port cleanEvents : Signal Float
+toBool f =
+  case f of
+    1 -> True
+    _ -> False
+cleanSignal : Signal Clean
+cleanSignal =
+  Signal.map toBool cleanEvents
+
 
 type Pen = Up | Down
 type alias Geometry = { radius : Float, omega : Float, color : Color }
@@ -57,7 +68,7 @@ g_update prop value geometry =
 
 action : Event -> State -> State
 action e state =
-  case Debug.log "event" e of
+  case e of
     PenUpdate x ->
       pen_update x state
     StateUpdate (idx, prop, value) ->
@@ -94,12 +105,11 @@ sgm start stop =
 
 timeline : Signal Time
 timeline =
-  -- (every millisecond)
   Signal.foldp (\t acc -> acc + t/1000) 0 (fps 24)
 
-compositeSignal : Signal (Time, State)
+compositeSignal : Signal (Time, State, Clean)
 compositeSignal =
-  Signal.map2 (\x y -> (x, y)) timeline stateSignal
+  Signal.map3 (\x y z -> (x, y, z)) timeline stateSignal cleanSignal
 
 type alias DState =
   { circles : List Form
@@ -107,14 +117,18 @@ type alias DState =
   , last_position : Pos
 }
 
-draw_action : (Time, State) -> DState -> DState
-draw_action (time, state) ds =
+draw_action : (Time, State, Clean) -> DState -> DState
+draw_action (time, state, clean) ds =
   let
     last_position = ds.last_position
     (new_pos, circles) = render time state.circles
-    paths = case state.pen of
+    new_paths = case state.pen of
       Up -> ds.paths
       Down -> ds.paths ++ (sgm last_position new_pos)
+    paths = if clean then
+      []
+    else
+      new_paths
   in
     { ds | circles = circles
     , last_position = new_pos
@@ -131,6 +145,9 @@ initDState =
 drawingSignal : Signal DState
 drawingSignal =
   Signal.foldp draw_action initDState compositeSignal
+
+-- gEventUpdate : GEvent -> DState -> DState
+-- gEventUpdate e ds = ds
 
 main : Signal Element
 main =

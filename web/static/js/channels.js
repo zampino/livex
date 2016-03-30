@@ -5,6 +5,7 @@ class Channels {
     console.log("boot:", ports);
     this.stateChangeEvents = ports.stateEvents
     this.penEvents = ports.penEvents
+    this.cleanEvents = ports.cleanEvents
     this.socket = new Socket("/socket", {params: {user_id: 1234}})
   }
 
@@ -32,12 +33,21 @@ class Channels {
   connect() {
     this.socket.connect()
     this.listenTo(this.socket)
+
     let penChannel = this.socket.channel("rotor:pen", {})
     penChannel.on("toggle", data => {
       let [value] = data.toggle
       this.penEvents.send(value)
     })
     penChannel.join()
+
+    let cleanChannel = this.socket.channel("rotor:clean", {})
+    cleanChannel.on("push", data => {
+      let [value] = data["push"]
+      this.cleanEvents.send(value)
+    })
+    cleanChannel.join()
+
   }
 
 }
