@@ -1,4 +1,4 @@
-import Graphics.Collage exposing (Form, collage, traced, solid, segment)
+import Graphics.Collage exposing (Form, collage, solid)
 import Graphics.Element exposing (Element)
 import Color exposing (orange, blue, red, black)
 
@@ -22,20 +22,20 @@ type SpiroGraphEvent = PenUpdate Pen | CircleUpdate (String, String, Float)
 port circleEvents : Signal (String, String, Float)
 circleChangeEvents : Signal SpiroGraphEvent
 circleChangeEvents =
-  Signal.map CircleUpdate circleEvents
+  Signal.map CircleUpdate circleEvents |> Signal.dropRepeats
 
 port penEvents : Signal Float
 penChangeEvents : Signal SpiroGraphEvent
 penChangeEvents =
-  Signal.map (\f -> if f == 1 then PenUpdate Down else PenUpdate Up) penEvents
+  Signal.map (\f -> if f == 1 then PenUpdate Down else PenUpdate Up) penEvents |> Signal.dropRepeats
 
 type alias Clean = Bool
 port cleanEvents : Signal Float
 cleanSignal : Signal Clean
 cleanSignal =
-  Signal.map (\f -> if f == 1 then True else False) cleanEvents
+  (Signal.map (\f -> if f == 1 then True else False) cleanEvents) |> Signal.dropRepeats
 
--- -------- SPIROGRAPH STATE SIGNALS -------------------------------------------------
+-- -------- SPIROGRAPH STATE SIGNALS -------------------------------------------
 type alias Circles = Dict String Circle
 type alias SpiroGraph = { circles : Circles, pen : Pen }
 
@@ -72,11 +72,10 @@ update (idx, prop, value) state =
   in
     { state | circles = new_dict }
 
--- ---------- DRAWING AND ANIMATIONS -------------------------------------------
-
+-- ---------------------- DRAWING AND ANIMATIONS -------------------------------
 timeline : Signal Time
 timeline =
-  Signal.foldp (\t acc -> acc + t/1000) 0 (fps 24)
+  Signal.foldp (\t acc -> acc + t/1000) 0 (fps 24) -- TODO: with Elm animationFrame
 
 compositeSignal : Signal (Time, SpiroGraph, Clean)
 compositeSignal =
@@ -100,43 +99,36 @@ drawingSignal =
   Signal.foldp draw_action initDrawing compositeSignal
 
 draw_action : (Time, SpiroGraph, Clean) -> Drawing -> Drawing
-draw_action (time, state, clean) drawing =
+draw_action (time, spirograph, clean) drawing =
   let
     last_position = drawing.last_position
-    (new_pos, circles) = render time state.circles
-    new_paths = case state.pen of
+    (new_pos, circles) = render time spirograph.circles
+    new_paths = case spirograph.pen of
       Up -> drawing.paths
       Down -> drawing.paths ++ (Geometry.sgmnt last_position new_pos)
-    paths = if log "clean events" clean then
-      []
-    else
-      new_paths
+    paths = if clean then [] else new_paths
   in
-    { drawing | circles = circles
-    , last_position = new_pos
-    , paths = paths
-    }
+    { drawing | circles = circles, last_position = new_pos, paths = paths }
 
--- gEventUpdate : GEvent -> Drawing -> Drawing
--- gEventUpdate e drawing = ds
+-- --------------------- RENDERING AND VIEWS -----------------------------------
+
+render : Time -> Circles -> (Point, List Form)
+render time circles =
+  ((0,0), [])
+  |> Geometry.rotor time (safeGet "c1" circles)
+  |> Geometry.rotor time (safeGet "c2" circles)
+  |> Geometry.rotor time (safeGet "c3" circles)
+
+view : Drawing -> Element
+view drawing =
+  drawing.circles ++ drawing.paths
+    |> collage 800 800
 
 main : Signal Element
 main =
   Signal.map view drawingSignal
 
-view : Drawing -> Element
-view ds =
-  collage 800 800 (ds.circles ++ ds.paths)
-
-render : Time -> Circles -> (Point, List Form)
-render time state =
-  ((0,0), [])
-  |> Geometry.rotor time (safeGet "c1" state)
-  |> Geometry.rotor time (safeGet "c2" state)
-  |> Geometry.rotor time (safeGet "c3" state)
-
-
--- UTILS
+-- ----------------- UTILS -----------------------------------------------------
 
 safeGet : String -> Circles -> Circle
 safeGet idx circles =
