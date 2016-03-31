@@ -1,190 +1,148 @@
-import Color exposing (..)
-import Graphics.Collage exposing (..)
-import Graphics.Element exposing (..)
+import Graphics.Collage exposing (Form, collage, traced, solid, segment)
+import Graphics.Element exposing (Element)
+import Color exposing (orange, blue, red, black)
+
 import Time exposing (Time, fps)
 import Dict exposing (Dict, get, insert)
 import Debug exposing (log)
 
-port stateEvents : Signal (String, String, Float)
-stateChangeEvents : Signal Event
-stateChangeEvents =
-  Signal.map StateUpdate stateEvents
+import Geometry exposing (Circle, Point)
+-- type alias Circle
+--   = { radius : Float
+--     , omega : Float (angular speed)
+--     , color : Color
+--     }
+--
+type Pen = Up | Down
+--                                                  ( key, property, value )
+type SpiroGraphEvent = PenUpdate Pen | CircleUpdate (String, String, Float)
+
+-- ---- PORTS ------------------------------------------------------------------
+
+port circleEvents : Signal (String, String, Float)
+circleChangeEvents : Signal SpiroGraphEvent
+circleChangeEvents =
+  Signal.map CircleUpdate circleEvents
 
 port penEvents : Signal Float
-up_or_down : Float -> Event
-up_or_down f =
-  case f of
-    1 -> PenUpdate Down
-    _ -> PenUpdate Up
-penChangeEvents : Signal Event
+penChangeEvents : Signal SpiroGraphEvent
 penChangeEvents =
-  Signal.map up_or_down penEvents
+  Signal.map (\f -> if f == 1 then PenUpdate Down else PenUpdate Up) penEvents
 
 type alias Clean = Bool
 port cleanEvents : Signal Float
-toBool f =
-  case f of
-    1 -> True
-    _ -> False
 cleanSignal : Signal Clean
 cleanSignal =
-  Signal.map toBool cleanEvents
+  Signal.map (\f -> if f == 1 then True else False) cleanEvents
 
+-- -------- SPIROGRAPH STATE SIGNALS -------------------------------------------------
+type alias Circles = Dict String Circle
+type alias SpiroGraph = { circles : Circles, pen : Pen }
 
-type Pen = Up | Down
-type alias Geometry = { radius : Float, omega : Float, color : Color }
-type alias Circles = Dict String Geometry
-type alias State = { circles : Circles, pen : Pen }
-type alias Pos = ( Float, Float )
-type Event = PenUpdate Pen | StateUpdate (String, String, Float)
+spiroGraphEvents =
+  Signal.merge penChangeEvents circleChangeEvents
 
-circles_dict = Dict.fromList
-  [ ("c1", Geometry 200 0.1 orange)
-  , ("c2", Geometry 100 0.3 blue)
-  , ("c3", Geometry 50 0.8 red)
+spiroGraphSignal =
+  Signal.foldp action initSpiroGraph spiroGraphEvents
+
+initSpiroGraph : SpiroGraph
+initSpiroGraph =
+  { circles = initCircles, pen = Up }
+initCircles = Dict.fromList
+  [ ("c1", Circle 200 0.1 orange)
+  , ("c2", Circle 100 0.3 blue)
+  , ("c3", Circle 50 0.8 red)
   ]
 
-safeGet : String -> Circles -> Geometry
-safeGet idx state =
-  let
-    mgeometry = get idx state
-  in
-    case mgeometry of
-      Just g -> g
-      Nothing -> Geometry 10 1 black
-
-update_radius : Float -> Float
-update_radius coeff =
-  50 + (600 * coeff)
-
-update_omega coeff = 2 * coeff
-
-g_update : String -> Float -> Geometry -> Geometry
-g_update prop value geometry =
-  case prop of
-    "radius" -> { geometry | radius = update_radius value }
-    "omega" -> { geometry | omega = update_omega value }
-    _ -> geometry
-
-action : Event -> State -> State
-action e state =
-  case e of
+action : SpiroGraphEvent -> SpiroGraph -> SpiroGraph
+action event spirograph =
+  case event of
     PenUpdate x ->
-      pen_update x state
-    StateUpdate (idx, prop, value) ->
-      state_update (idx, prop, value) state
+      { spirograph | pen = x }
+    CircleUpdate (idx, prop, value) ->
+      update (idx, prop, value) spirograph
 
-pen_update x state =
-  { state | pen = x }
-
-state_update : (String, String, Float) -> State -> State
-state_update (idx, prop, value) state =
+update : (String, String, Float) -> SpiroGraph -> SpiroGraph
+update (idx, prop, value) state =
   let
     new_geometry =
-      state.circles |> safeGet idx |> g_update prop value
+      state.circles |> safeGet idx |> Geometry.update prop value
     new_dict =
       insert idx new_geometry state.circles
   in
     { state | circles = new_dict }
 
-inputSignal =
-  Signal.merge penChangeEvents stateChangeEvents
-
-initState : State
-initState =
-  { circles = circles_dict, pen = Up }
-
-stateSignal =
-  Signal.foldp action initState inputSignal
-
-sgm : Pos -> Pos -> List Form
-sgm start stop =
-  case start of
-    (0, 0) -> []
-    other -> [traced (solid black) (segment other stop)]
+-- ---------- DRAWING AND ANIMATIONS -------------------------------------------
 
 timeline : Signal Time
 timeline =
   Signal.foldp (\t acc -> acc + t/1000) 0 (fps 24)
 
-compositeSignal : Signal (Time, State, Clean)
+compositeSignal : Signal (Time, SpiroGraph, Clean)
 compositeSignal =
-  Signal.map3 (\x y z -> (x, y, z)) timeline stateSignal cleanSignal
+  Signal.map3 ( \x y z -> (x, y, z) ) timeline spiroGraphSignal cleanSignal
 
-type alias DState =
+type alias Drawing =
   { circles : List Form
   , paths : List Form
-  , last_position : Pos
-}
+  , last_position : Point
+  }
 
-draw_action : (Time, State, Clean) -> DState -> DState
-draw_action (time, state, clean) ds =
-  let
-    last_position = ds.last_position
-    (new_pos, circles) = render time state.circles
-    new_paths = case state.pen of
-      Up -> ds.paths
-      Down -> ds.paths ++ (sgm last_position new_pos)
-    paths = if clean then
-      []
-    else
-      new_paths
-  in
-    { ds | circles = circles
-    , last_position = new_pos
-    , paths = paths
-    }
-
-initDState : DState
-initDState =
+initDrawing : Drawing
+initDrawing =
   { last_position = (0, 0)
   , circles = []
   , paths = []
   }
 
-drawingSignal : Signal DState
+drawingSignal : Signal Drawing
 drawingSignal =
-  Signal.foldp draw_action initDState compositeSignal
+  Signal.foldp draw_action initDrawing compositeSignal
 
--- gEventUpdate : GEvent -> DState -> DState
--- gEventUpdate e ds = ds
+draw_action : (Time, SpiroGraph, Clean) -> Drawing -> Drawing
+draw_action (time, state, clean) drawing =
+  let
+    last_position = drawing.last_position
+    (new_pos, circles) = render time state.circles
+    new_paths = case state.pen of
+      Up -> drawing.paths
+      Down -> drawing.paths ++ (Geometry.sgmnt last_position new_pos)
+    paths = if log "clean events" clean then
+      []
+    else
+      new_paths
+  in
+    { drawing | circles = circles
+    , last_position = new_pos
+    , paths = paths
+    }
+
+-- gEventUpdate : GEvent -> Drawing -> Drawing
+-- gEventUpdate e drawing = ds
 
 main : Signal Element
 main =
   Signal.map view drawingSignal
 
-view : DState -> Element
+view : Drawing -> Element
 view ds =
   collage 800 800 (ds.circles ++ ds.paths)
 
-render : Time -> Circles -> (Pos, List Form)
+render : Time -> Circles -> (Point, List Form)
 render time state =
   ((0,0), [])
-  |> rotor time (safeGet "c1" state)
-  |> rotor time (safeGet "c2" state)
-  |> rotor time (safeGet "c3" state)
+  |> Geometry.rotor time (safeGet "c1" state)
+  |> Geometry.rotor time (safeGet "c2" state)
+  |> Geometry.rotor time (safeGet "c3" state)
 
-rotor : Time -> Geometry -> (Pos, List Form) -> (Pos, List Form)
-rotor time geometry (center, acc) =
+
+-- UTILS
+
+safeGet : String -> Circles -> Circle
+safeGet idx circles =
   let
-    angle =
-      2 * pi * geometry.omega * time
-    thin =
-      solid geometry.color
-    thick =
-      { thin | width = 2 }
-    (deltaX, deltaY) =
-      fromPolar (geometry.radius, angle)
-    pos =
-      ((fst center) + deltaX, (snd center) + deltaY)
-    seg =
-      segment center pos
-    elm =
-      group
-        [ move center (outlined (solid grey) (circle geometry.radius))
-        , traced thick seg
-        ]
-    new_list =
-      elm :: acc
+    mgeometry = get idx circles
   in
-    (pos, new_list)
+    case mgeometry of
+      Just g -> g
+      Nothing -> Circle 10 1 black

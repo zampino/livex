@@ -3,7 +3,7 @@ import {Socket} from "phoenix"
 class Channels {
   constructor(ports) {
     console.log("boot:", ports);
-    this.stateChangeEvents = ports.stateEvents
+    this.stateChangeEvents = ports.circleEvents
     this.penEvents = ports.penEvents
     this.cleanEvents = ports.cleanEvents
     this.socket = new Socket("/socket", {params: {user_id: 1234}})
