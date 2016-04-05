@@ -1,4 +1,4 @@
-import Graphics.Collage exposing (Form, collage, solid)
+import Graphics.Collage exposing (Form, move, collage, solid)
 import Graphics.Element exposing (Element)
 import Color exposing (orange, blue, red, black)
 
@@ -22,25 +22,31 @@ type SpiroGraphEvent = PenUpdate Pen | CircleUpdate (String, String, Float)
 port circleEvents : Signal (String, String, Float)
 circleChangeEvents : Signal SpiroGraphEvent
 circleChangeEvents =
-  Signal.map CircleUpdate circleEvents |> Signal.dropRepeats
+  Signal.map CircleUpdate circleEvents
 
 port penEvents : Signal Float
 penChangeEvents : Signal SpiroGraphEvent
 penChangeEvents =
-  Signal.map (\f -> if f == 1 then PenUpdate Down else PenUpdate Up) penEvents |> Signal.dropRepeats
+  Signal.map (\f -> if f == 1 then PenUpdate Down else PenUpdate Up) penEvents
 
 type alias Clean = Bool
 port cleanEvents : Signal Float
 cleanSignal : Signal Clean
 cleanSignal =
-  (Signal.map (\f -> if f == 1 then True else False) cleanEvents) |> Signal.dropRepeats
+  Signal.map (\f -> if f == 1 then True else False) cleanEvents
+
+type Mode = Spiro | Wave
+port modeEvents : Signal Float
+modeSignal : Signal Mode
+modeSignal =
+  Signal.map (\f -> if f == 0.0 then Spiro else Wave) modeEvents
 
 -- -------- SPIROGRAPH STATE SIGNALS -------------------------------------------
 type alias Circles = Dict String Circle
 type alias SpiroGraph = { circles : Circles, pen : Pen }
 
 spiroGraphEvents =
-  Signal.merge penChangeEvents circleChangeEvents
+  Signal.mergeMany [penChangeEvents, circleChangeEvents]
 
 spiroGraphSignal =
   Signal.foldp action initSpiroGraph spiroGraphEvents
@@ -85,6 +91,7 @@ type alias Drawing =
   { circles : List Form
   , paths : List Form
   , last_position : Point
+  , wave : List Form
   }
 
 initDrawing : Drawing
@@ -92,6 +99,7 @@ initDrawing =
   { last_position = (0, 0)
   , circles = []
   , paths = []
+  , wave = []
   }
 
 drawingSignal : Signal Drawing
@@ -103,12 +111,13 @@ draw_action (time, spirograph, clean) drawing =
   let
     last_position = drawing.last_position
     (new_pos, circles) = render time spirograph.circles
+    new_wave = draw_wave drawing.wave time last_position new_pos
     new_paths = case spirograph.pen of
       Up -> drawing.paths
       Down -> drawing.paths ++ (Geometry.sgmnt last_position new_pos)
     paths = if clean then [] else new_paths
   in
-    { drawing | circles = circles, last_position = new_pos, paths = paths }
+    { drawing | circles = circles, last_position = new_pos, paths = paths, wave = new_wave }
 
 -- --------------------- RENDERING AND VIEWS -----------------------------------
 
@@ -119,14 +128,21 @@ render time circles =
   |> Geometry.rotor time (safeGet "c2" circles)
   |> Geometry.rotor time (safeGet "c3" circles)
 
-view : Drawing -> Element
-view drawing =
-  drawing.circles ++ drawing.paths
-    |> collage 800 800
+view : Drawing -> Mode -> Element
+view drawing mode =
+  let
+    plot = case mode of
+      Spiro ->
+        drawing.paths
+      Wave ->
+        drawing.wave
+  in
+    drawing.circles ++ plot
+      |> collage 800 800
 
 main : Signal Element
 main =
-  Signal.map view drawingSignal
+  Signal.map2 view drawingSignal modeSignal
 
 -- ----------------- UTILS -----------------------------------------------------
 
@@ -138,3 +154,19 @@ safeGet idx circles =
     case mgeometry of
       Just g -> g
       Nothing -> Circle 10 1 black
+
+draw_wave : List Form -> Time -> Point -> Point -> List Form
+draw_wave acc t last_pos new_pos =
+  let
+    alpha = 5.5
+    time = (alpha / (1 + t)) * t
+    (_, last_y) = last_pos
+    (_, new_y) = new_pos
+    new_delta = Geometry.sgmnt (time - 400, last_y) (-400, new_y)
+    translated = translate acc time
+  in
+    translated ++ new_delta
+
+translate : List Form -> Time -> List Form
+translate list time =
+  List.map (\sgmnt -> move (time, 0) sgmnt) list

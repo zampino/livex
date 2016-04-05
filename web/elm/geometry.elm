@@ -16,7 +16,8 @@ update_radius : Float -> Float
 update_radius coeff =
   50 + (600 * coeff)
 
-update_omega coeff = 2 * coeff
+update_omega coeff =
+  coeff
 
 update : String -> Float -> Circle -> Circle
 update prop value c =

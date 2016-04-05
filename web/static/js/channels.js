@@ -5,6 +5,7 @@ class Channels {
     console.log("boot:", ports);
     this.stateChangeEvents = ports.circleEvents
     this.penEvents = ports.penEvents
+    this.modeEvents = ports.modeEvents
     this.cleanEvents = ports.cleanEvents
     this.socket = new Socket("/socket", {params: {user_id: 1234}})
   }
@@ -23,7 +24,6 @@ class Channels {
     new Array("radius", "omega").map(prop => {
       ch.on(prop, data => {
         let [value] = data[prop]
-        // console.log(name, prop, value)
         that.stateChangeEvents.send([idx, prop, value])
       })
     })
@@ -48,6 +48,12 @@ class Channels {
     })
     cleanChannel.join()
 
+    let modeChannel = this.socket.channel("rotor:mode", {})
+    modeChannel.on("toggle", data => {
+      let [value] = data.toggle
+      this.modeEvents.send(value)
+    })
+    modeChannel.join()
   }
 
 }
