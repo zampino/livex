@@ -2,7 +2,8 @@ import Graphics.Collage exposing (Form, move, collage, solid)
 import Graphics.Element exposing (Element)
 import Color exposing (orange, blue, red, black)
 
-import Time exposing (Time, fps)
+import Time exposing (Time) --, fps)
+import AnimationFrame
 import Dict exposing (Dict, get, insert)
 import Debug exposing (log)
 
@@ -81,7 +82,8 @@ update (idx, prop, value) state =
 -- ---------------------- DRAWING AND ANIMATIONS -------------------------------
 timeline : Signal Time
 timeline =
-  Signal.foldp (\t acc -> acc + t/1000) 0 (fps 24) -- TODO: with Elm animationFrame
+  -- Signal.foldp (\t acc -> acc + t/1000) 0 (fps 60) -- TODO: with Elm animationFrame
+  Signal.foldp (\frame time -> time + frame/1000) 0 AnimationFrame.frame
 
 compositeSignal : Signal (Time, SpiroGraph, Clean)
 compositeSignal =
